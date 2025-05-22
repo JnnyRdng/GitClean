@@ -1,6 +1,6 @@
 # GitClean
 
-Helps clean up leftover branches following a squash commit.
+Removes local branches in a git repository that no longer exist on the remote.
 
 
 ## Usage
