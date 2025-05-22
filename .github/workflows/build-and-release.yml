@@ -1,0 +1,62 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      matrix:
+        os: [ubuntu, macos, windows]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+      
+      - name: Restore dependencies
+        run: dotnet restore GitClean.csproj
+      
+      - name: Build project
+        run: dotnet publish GitClean.csproj -c Release -o publish-${{ matrix.os }} --self-contained true -p:PublishSingleFile=true -r ${{ matrix.os == 'ubuntu' && 'linux-x64' || matrix.os == 'macos' && 'osx-x64' || 'win-x64' }}
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GitClean-${{ matrix.os }}
+          path: publish-${{ matrix.os }}/*
+  
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+    
+      - name: Rename
+        run: |
+          mv artifacts/GitClean-ubuntu/GitClean artifacts/GitClean-ubuntu/GitClean-linux 
+          mv artifacts/GitClean-macos/GitClean artifacts/GitClean-macos/GitClean-macos 
+          mv artifacts/GitClean-windows/GitClean.exe artifacts/GitClean-windows/GitClean-windows.exe 
+      
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/GitClean-ubuntu/GitClean-linux
+            artifacts/GitClean-macos/GitClean-macos
+            artifacts/GitClean-windows/GitClean-windows.exe
+          token: ${{ secrets.PAT_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
