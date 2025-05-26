@@ -19,7 +19,7 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
                 async ctx =>
                 {
                     await Git.RunGit("fetch --prune", directory);
-                    return await Git.GetRemovedBranches(directory);
+                    return await Git.GetRemovedBranches(directory, settings.AllBranches);
                 });
 
         if (branches.Count == 0)
@@ -33,6 +33,7 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
                 .Title("Select [bold red]branches to delete[/]:")
                 .NotRequired()
                 .PageSize(10)
+                .WrapAround(true)
                 .MoreChoicesText("[grey](Move up/down to reveal more)[/]")
                 .InstructionsText("[grey](Press [blue]<space>[/] to toggle, [green]<enter>[/] to accept)[/]")
                 .AddChoices(branches)

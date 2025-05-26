@@ -17,6 +17,10 @@ public class CleanCommandSettings : CommandSettings
     [Description("Optional target directory. If omitted, the current working directory is used. Must be within a git repository.")]
     [CommandArgument(0, "[DIRECTORY]")]
     public string WorkingDir { get; private set; } = Directory.GetCurrentDirectory();
+    
+    [Description("Dangerous. Select from all branches.")]
+    [CommandOption("-a|--all")]
+    public bool AllBranches { get; private set; }
 
     public override ValidationResult Validate()
     {
