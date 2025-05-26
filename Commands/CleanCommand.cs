@@ -86,7 +86,7 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
         var failed = new List<string>();
         foreach (var branch in branches)
         {
-            var command = $"branch -d {branch}";
+            var command = $"-c advice.forceDeleteBranch=false branch -d {branch}";
             var res = await Git.RunGit(command, Settings.WorkingDir);
             if (res.IsError)
             {
