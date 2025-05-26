@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using GitClean.Settings;
+﻿using GitClean.Settings;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -15,7 +14,7 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
         var directory = Settings.WorkingDir;
         AnsiConsole.MarkupLine($"Repo: [blue bold]{directory}[/]");
         RenderSettingsTable();
-        AnsiConsole.MarkupLine("");
+        AnsiConsole.WriteLine();
         var branches = await AnsiConsole.Status()
             .Spinner(Spinner.Known.Dots)
             .StartAsync("[bold]Finding branches that have been removed on the remote.[/]",
@@ -31,7 +30,7 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
             return 0;
         }
 
-        var selected = AnsiConsole.Prompt(
+        var selected = await AnsiConsole.PromptAsync(
             new MultiSelectionPrompt<string>()
                 .Title("Select [bold red]branches to delete[/]:")
                 .NotRequired()
