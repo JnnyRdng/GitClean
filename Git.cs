@@ -39,6 +39,7 @@ public class Git
         var lines = res.Output.Split('\n');
         var removedLines = lines
             .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Where(line => !line.StartsWith('*'))
             .Where(line => allBranches || line.Contains(": gone]"));
         var branchNames = removedLines.Select(line => line.Trim().Split(' ')[0]);
         return branchNames.ToList();
