@@ -13,6 +13,7 @@ namespace GitClean
             app.Configure(config =>
             {
                 config.SetApplicationName("GitClean");
+                config.UseStrictParsing();
             });
             try
             {
