@@ -21,7 +21,7 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
                 async ctx =>
                 {
                     await Git.RunGit("fetch --prune", directory);
-                    return await Git.GetRemovedBranches(directory, Settings.AllBranches);
+                    return await Git.GetBranches(directory, Settings.AllBranches);
                 });
 
         if (branches.Count == 0)

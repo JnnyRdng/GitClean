@@ -33,15 +33,14 @@ public class Git
         return RepoDetails.FromCmdResult(res);
     }
 
-    public static async Task<List<string>> GetRemovedBranches(string workingDirectory, bool allBranches)
+    public static async Task<List<string>> GetBranches(string workingDirectory, bool allBranches)
     {
         var res = await RunGit("branch -vv", workingDirectory);
         var lines = res.Output.Split('\n');
-        var removedLines = lines
-            .Where(line => !string.IsNullOrWhiteSpace(line))
-            .Where(line => !line.StartsWith('*'))
-            .Where(line => allBranches || line.Contains(": gone]"));
-        var branchNames = removedLines.Select(line => line.Trim().Split(' ')[0]);
+        var branchNames = lines
+            .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith('*'))
+            .Where(line => allBranches || line.Contains(": gone]"))
+            .Select(line => line.Trim().Split(' ')[0]);
         return branchNames.ToList();
     }
 }
