@@ -6,17 +6,13 @@ namespace GitClean.Settings;
 
 public class CleanCommandSettings : CommandSettings
 {
-    [Description("Force deletion of selected branches with [bold]-D[/] flag")]
-    [CommandOption("-f|--force")]
-    public bool Force { get; private set; }
+    [Description("Optional target directory. If omitted, the current working directory is used. Must be within a git repository.")]
+    [CommandArgument(0, "[DIRECTORY]")]
+    public string WorkingDir { get; private set; } = Directory.GetCurrentDirectory();
 
     [Description("Dry run. No branches will be deleted")]
     [CommandOption("-d|--dry-run")]
     public bool DryRun { get; private set; }
-
-    [Description("Optional target directory. If omitted, the current working directory is used. Must be within a git repository.")]
-    [CommandArgument(0, "[DIRECTORY]")]
-    public string WorkingDir { get; private set; } = Directory.GetCurrentDirectory();
     
     [Description("Dangerous. Select from all branches.")]
     [CommandOption("-a|--all")]
