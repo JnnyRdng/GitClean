@@ -30,7 +30,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GitClean-${{ matrix.os }}
+          name: gitclean-${{ matrix.os }}
           path: publish-${{ matrix.os }}/*
   
   release:
@@ -44,17 +44,17 @@ jobs:
     
       - name: Rename
         run: |
-          mv artifacts/GitClean-ubuntu/GitClean artifacts/GitClean-ubuntu/GitClean-linux 
-          mv artifacts/GitClean-macos/GitClean artifacts/GitClean-macos/GitClean-macos 
-          mv artifacts/GitClean-windows/GitClean.exe artifacts/GitClean-windows/GitClean-windows.exe 
+          mv artifacts/gitclean-ubuntu/gitclean artifacts/gitclean-ubuntu/gitclean-linux 
+          mv artifacts/gitclean-macos/gitclean artifacts/gitclean-macos/gitclean-macos 
+          mv artifacts/gitclean-windows/gitclean.exe artifacts/gitclean-windows/gitclean-windows.exe 
       
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/GitClean-ubuntu/GitClean-linux
-            artifacts/GitClean-macos/GitClean-macos
-            artifacts/GitClean-windows/GitClean-windows.exe
+            artifacts/gitclean-ubuntu/gitclean-linux
+            artifacts/gitclean-macos/gitclean-macos
+            artifacts/gitclean-windows/gitclean-windows.exe
           token: ${{ secrets.PAT_TOKEN }}
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}

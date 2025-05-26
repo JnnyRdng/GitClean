@@ -115,10 +115,11 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
     private void RenderSettingsTable()
     {
         var table = new Table();
+        table.BorderColor(Color.Grey);
         table.AddColumn("Setting");
         table.AddColumn(new TableColumn("").Centered());
         table.HideHeaders();
-        table.Border(TableBorder.Rounded);
+        table.Border(TableBorder.Minimal);
         table.AddRow("Dry Run Mode", GetSettingsTableValue(Settings.DryRun));
         table.AddRow("All Branches", GetSettingsTableValue(Settings.AllBranches));
         table.Collapse();
