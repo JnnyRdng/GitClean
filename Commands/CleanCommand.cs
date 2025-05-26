@@ -120,7 +120,7 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
         table.HideHeaders();
         table.Border(TableBorder.Rounded);
         table.AddRow("Dry Run Mode", GetSettingsTableValue(Settings.DryRun));
-        table.AddRow("All branches", GetSettingsTableValue(Settings.AllBranches));
+        table.AddRow("All Branches", GetSettingsTableValue(Settings.AllBranches));
         table.Collapse();
         AnsiConsole.Write(table);
     }
