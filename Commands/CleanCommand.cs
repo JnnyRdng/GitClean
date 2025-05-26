@@ -76,13 +76,9 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
         var plural = $"branch{(failed.Count == 1 ? "" : "es")}";
         AnsiConsole.MarkupLine($"{failed.Count} {plural} could not be deleted.");
         var confirmForce = await AnsiConsole.ConfirmAsync($"Force delete the failed {plural}", false);
-        if (!confirmForce)
-        {
-            AnsiConsole.MarkupLine("Cancelled!");
-            return 0;
-        }
-
-        return await ForceDeleteBranches(failed);
+        if (confirmForce) return await ForceDeleteBranches(failed);
+        AnsiConsole.MarkupLine("Cancelled!");
+        return 0;
     }
 
     private async Task<List<string>> TryDeleteBranches(List<string> branches)
