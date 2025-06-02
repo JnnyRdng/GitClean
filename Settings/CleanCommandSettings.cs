@@ -13,13 +13,26 @@ public class CleanCommandSettings : CommandSettings
     [Description("Dry run. No branches will be deleted")]
     [CommandOption("-d|--dry-run")]
     public bool DryRun { get; private set; }
-    
+
     [Description("Dangerous. Select from all branches.")]
     [CommandOption("-a|--all")]
     public bool AllBranches { get; private set; }
 
     public override ValidationResult Validate()
     {
+        if (WorkingDir.StartsWith('~'))
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            WorkingDir = WorkingDir.Length switch
+            {
+                1 => home,
+                >= 2 when (WorkingDir[1] == Path.DirectorySeparatorChar ||
+                           WorkingDir[1] == Path.AltDirectorySeparatorChar) => Path.Combine(home,
+                    WorkingDir.Length > 2 ? WorkingDir[2..] : ""),
+                _ => WorkingDir
+            };
+        }
+
         if (!Directory.Exists(WorkingDir))
         {
             return ValidationResult.Error("Directory not found");
