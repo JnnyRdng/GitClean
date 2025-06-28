@@ -4,7 +4,7 @@ using GitClean.Models;
 
 namespace GitClean;
 
-public class Git
+public static class Git
 {
     public static async Task<CmdResult> RunGit(string args, string workingDirectory)
     {
@@ -21,16 +21,23 @@ public class Git
             throw new ProcessFailureException("Failed to start git process");
         }
 
+        var outputTask = p.StandardOutput.ReadToEndAsync();
+        var errorTask = p.StandardError.ReadToEndAsync();
         await p.WaitForExitAsync();
-        var output = await p.StandardOutput.ReadToEndAsync();
-        var error = await p.StandardError.ReadToEndAsync();
-        return new CmdResult(output, error);
+        var output = await outputTask;
+        var error = await errorTask;
+        return new CmdResult(output, error, p.ExitCode);
     }
 
     public static async Task<RepoDetails> GetTopLevelOfRepo(string currentDirectory)
     {
         var res = await RunGit("rev-parse --show-toplevel", currentDirectory);
         return RepoDetails.FromCmdResult(res);
+    }
+
+    public static async Task<CmdResult> GetCurrentBranchName(string currentDirectory)
+    {
+        return await RunGit("rev-parse --abbrev-ref HEAD", currentDirectory);
     }
 
     public static async Task<List<string>> GetBranches(string workingDirectory, bool allBranches)

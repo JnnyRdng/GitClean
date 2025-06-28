@@ -2,15 +2,16 @@
 
 public class CmdResult
 {
-    // public record CmdResult(string Output, string Error);
     public string Output { get; }
     public string Error { get; }
-    public bool IsError => Error.Length > 0;
+    
+    public int ExitCode { get; }
+    public bool IsError => ExitCode != 0 || Error.Length > 0;
 
-
-    public CmdResult(string output, string error)
+    public CmdResult(string output, string error, int exitCode)
     {
         Output = output.Trim();
         Error = error.Trim();
+        ExitCode = exitCode;
     }
 }

@@ -1,4 +1,5 @@
-﻿using GitClean.Settings;
+﻿using GitClean.Exceptions;
+using GitClean.Settings;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -12,7 +13,13 @@ public class CleanCommand : AsyncCommand<CleanCommandSettings>
     {
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
         var directory = Settings.WorkingDir;
-        AnsiConsole.MarkupLine($"Repo: [blue bold]{directory}[/]");
+        var branchRes = await Git.GetCurrentBranchName(directory);
+        if (branchRes.IsError)
+        {
+            throw new ProcessFailureException(branchRes);
+        }
+        AnsiConsole.MarkupLine($"Repository: [blue bold]{directory}[/]");
+        AnsiConsole.MarkupLine($"Current Branch: [blue bold]{branchRes.Output}[/]");
         RenderSettingsTable();
         AnsiConsole.WriteLine();
         var branches = await AnsiConsole.Status()
