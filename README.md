@@ -3,6 +3,8 @@
 Removes local branches in a git repository that no longer exist on the remote.
 Can optionally be used to interactively delete any git branch other than the current.
 
+Rebuilt from the ground up with Go for very little reason.
+
 ## Help
 
 ```bash
