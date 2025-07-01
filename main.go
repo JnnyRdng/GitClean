@@ -2,8 +2,12 @@ package main
 
 import (
 	"fmt"
-	"gitclean/internal"
+	s "gitclean/settings"
+	t "gitclean/types"
+	u "gitclean/utils"
 	"log"
+	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,9 +15,9 @@ import (
 )
 
 func initApp() model {
-	settings := internal.ParseSettings()
+	settings := s.ParseSettings()
 	spin := spinner.New()
-	spin.Spinner = spinner.Jump
+	spin.Spinner = spinner.Pulse
 	spin.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF69B4"))
 
 	return model{
@@ -30,7 +34,6 @@ func main() {
 	if err != nil {
 		defer fmt.Printf("%v\n", err)
 	}
-
 }
 
 var cerulean = lipgloss.Color("#8D989B") // blueish
@@ -45,13 +48,8 @@ func GetContainer(width int) lipgloss.Style {
 		Width(width)
 }
 
-type failedBranch struct {
-	name   string
-	reason string
-}
-
 type model struct {
-	settings *internal.Settings
+	settings *s.Settings
 
 	width  int
 	height int
@@ -63,7 +61,8 @@ type model struct {
 	branchCursor     int
 	selectedMap      map[int]struct{}
 	selectedBranches []string
-	failed           []failedBranch
+	deleted          []t.ProcessedBranch
+	failed           []t.ProcessedBranch
 
 	err error
 }
@@ -71,13 +70,6 @@ type model struct {
 func (m model) Init() tea.Cmd {
 	return m.spinner.Tick
 }
-
-var style = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(lipgloss.Color("#FAFAFA")).
-	Background(lipgloss.Color("#7D56F4")).
-	Padding(2, 4).
-	Width(22)
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msgT := msg.(type) {
@@ -95,12 +87,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case branchListMsg:
 		m.branches = msgT.data
 		m.appState = msgT.state.next
+	case processedBranches:
+		m.deleted = u.Filter(msgT.data, func(b t.ProcessedBranch) bool {
+			return b.Removed
+		})
+		m.failed = u.Filter(msgT.data, func(b t.ProcessedBranch) bool {
+			return !b.Removed
+		})
+		m.selectedMap = make(map[int]struct{})
+		m.branchCursor = 0
+		m.appState = msgT.state.next
+		if len(m.failed) == 0 {
+			return m, quitAfter(5 * time.Second)
+		}
+	case tickMsg:
+		return m, tea.Quit
 	default:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
 	}
 	return m, nil
+}
+
+type tickMsg struct{}
+
+func quitAfter(d time.Duration) tea.Cmd {
+	return func() tea.Msg {
+		time.Sleep(d)
+		return tickMsg{}
+	}
 }
 
 func (m model) HandleKeyboardInput(input string) (tea.Model, tea.Cmd) {
@@ -117,10 +133,8 @@ func (m model) HandleKeyboardInput(input string) (tea.Model, tea.Cmd) {
 		switch input {
 		case "up", "j":
 			m.branchCursor = (m.branchCursor - 1 + len(m.branches)) % len(m.branches)
-			return m, nil
 		case "down", "k":
 			m.branchCursor = (m.branchCursor + 1 + len(m.branches)) % len(m.branches)
-			return m, nil
 		case " ":
 			if _, ok := m.selectedMap[m.branchCursor]; ok {
 				delete(m.selectedMap, m.branchCursor)
@@ -130,15 +144,57 @@ func (m model) HandleKeyboardInput(input string) (tea.Model, tea.Cmd) {
 		case "enter":
 			m.selectedBranches = m.GetSelected()
 			m.appState++
-			return m, nil
+			return m, func() tea.Msg {
+				return processedBranches{m.TryDeleteBranches(), appState{3}}
+			}
+		}
+	}
+	if m.appState == 3 {
+		switch input {
+		case "up", "j":
+			m.branchCursor = (m.branchCursor - 1 + len(m.failed)) % len(m.failed)
+		case "down", "k":
+			m.branchCursor = (m.branchCursor + 1 + len(m.failed)) % len(m.failed)
+		case " ":
+			if _, ok := m.selectedMap[m.branchCursor]; ok {
+				delete(m.selectedMap, m.branchCursor)
+			} else {
+				m.selectedMap[m.branchCursor] = struct{}{}
+			}
+		case "enter":
+			m.selectedBranches = m.GetSelectedFailed()
+			m.appState++
+			return m, func() tea.Msg {
+				return m.ForceDeleteBranches()
+				// return processedBranches{m.TryDeleteBranches(), appState{3}}
+			}
 		}
 	}
 
-	if input == "enter" {
-		return m, tea.Quit
-	}
-
 	return m, nil
+}
+
+func (m model) TryDeleteBranches() []t.ProcessedBranch {
+	arr := make([]t.ProcessedBranch, len(m.selectedBranches))
+	for i, b := range m.selectedBranches {
+		out, err := u.TryDeleteBranch(m.settings.WorkingDirectory, b, m.settings.DryRun)
+		msg := out
+		if err != nil {
+			msg = err.Error()
+		}
+		msg = strings.TrimSpace(msg)
+		arr[i] = t.ProcessedBranch{Name: b, Desc: msg, Removed: err == nil}
+	}
+	return arr
+}
+
+func (m model) ForceDeleteBranches() appState {
+	out, err := u.ForceDeleteBranches(m.settings.WorkingDirectory, m.selectedBranches)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	log.Fatal(out)
+	return appState{5}
 }
 
 type branchListMsg struct {
@@ -146,8 +202,8 @@ type branchListMsg struct {
 	state appState
 }
 
-type selectedBranchesMsg struct {
-	data  []string
+type processedBranches struct {
+	data  []t.ProcessedBranch
 	state appState
 }
 
@@ -157,26 +213,25 @@ type appState struct {
 
 func (m model) startFetch() tea.Cmd {
 	return func() tea.Msg {
-		// branches, err := internal.GitGetBranches(m.settings.WorkingDirectory, m.settings.AllBranches)
-		// if err != nil {
-		// 	m.err = err
-		// 	return m
-		// }
-		// return branchListMsg{branches, appState{2}}
-		var words = []string{
-			"fix-auth-bug",
-			"feat-ui-tweak",
-			"ref-log-clean",
-			"opt-cache-hit",
-			"test-api-post",
-			"chore-deps-up",
-			"hotfix-404",
-			"rm-old-routes",
-			"fix-typos",
-			"feat-fake-branches",
-			"test-the-whole-thing",
+		branches, err := u.GitGetBranches(m.settings.WorkingDirectory, m.settings.AllBranches)
+		if err != nil {
+			m.err = err
+			return m
 		}
-		return branchListMsg{words, appState{2}}
+		// var branches = []string{
+		// 	"fix-auth-bug",
+		// 	"feat-ui-tweak",
+		// 	"ref-log-clean",
+		// 	"opt-cache-hit",
+		// 	"test-api-post",
+		// 	"chore-deps-up",
+		// 	"hotfix-404",
+		// 	"rm-old-routes",
+		// 	"fix-typos",
+		// 	"feat-fake-branches",
+		// 	"test-the-whole-thing",
+		// }
+		return branchListMsg{branches, appState{2}}
 	}
 }
 
@@ -185,6 +240,16 @@ func (m model) GetSelected() []string {
 	for i := range m.selectedMap {
 		if i >= 0 && i < len(m.branches) {
 			selectedBranches = append(selectedBranches, m.branches[i])
+		}
+	}
+	return selectedBranches
+}
+
+func (m model) GetSelectedFailed() []string {
+	selectedBranches := make([]string, 0, len(m.selectedMap))
+	for i := range m.selectedMap {
+		if i >= 0 && i < len(m.failed) {
+			selectedBranches = append(selectedBranches, m.failed[i].Name)
 		}
 	}
 	return selectedBranches
@@ -222,6 +287,22 @@ func (m model) View() string {
 		{
 			return container.Render(m.RenderBranchList())
 		}
+	case 3:
+		{
+			s := ""
+			if len(m.deleted) > 0 {
+				s += "Deleted:\n"
+			}
+			for _, p := range m.deleted {
+				s += "- "
+				s += deleted.Render(p.Name)
+				s += "\n  "
+				s += "\n"
+				s += deleted.Render(p.Desc)
+			}
+			s += m.RenderFailedBranchList()
+			return container.Render(s)
+		}
 	}
 
 	var res string = fmt.Sprintf("There are %d branches to look at\n", len(m.selectedBranches))
@@ -236,12 +317,14 @@ var itemStyleSelected = itemStyle.Foreground(mantis).Bold(true).Underline(true)
 var enumStyle = lipgloss.NewStyle().Foreground(cerulean)
 var enumStyleSelected = enumStyle.Foreground(white)
 
+var deleted = itemStyle.Strikethrough(true)
+
 const maxPageSize int = 10
 
 func (m model) RenderBranchList() string {
 	var s string = "Choose branches to remove:"
 	clampedPageSize := min(len(m.branches), maxPageSize)
-	page := internal.Paginate(m.branches, clampedPageSize)
+	page := u.Paginate(m.branches, clampedPageSize)
 	pageNum, currentPage := page.GetPageForIndex(m.branchCursor)
 	if page.TotalPages > 1 {
 		s += "\nPage"
@@ -257,20 +340,77 @@ func (m model) RenderBranchList() string {
 		}
 		ii := page.GetIndex(pageNum, i)
 		if m.branchCursor == ii {
-			s += "> "
+			s += "▶ "
 		} else {
 			s += "  "
 		}
 		_, ok := m.selectedMap[ii]
 		if ok {
-			s += enumStyleSelected.Render("[x]  ")
+			s += enumStyleSelected.Render("(x)  ")
 		} else {
-			s += enumStyle.Render("[ ]  ")
+			s += enumStyle.Render("( )  ")
 		}
 		if ok {
 			s += itemStyleSelected.Render(b)
 		} else {
 			s += itemStyle.Render(b)
+		}
+
+		s += "\n"
+	}
+
+	s += "\nPress "
+	s += codestyle.Render("[up]/[down]")
+	s += " to scroll.\nPress "
+	s += codestyle.Render("[space]")
+	s += " to toggle.\n"
+	s += "Press "
+	s += codestyle.Render("[enter]")
+	s += " to confirm."
+
+	return s
+}
+
+func (m model) RenderFailedBranchList() string {
+	s := "Choose branches to force delete"
+	clampedPageSize := min(len(m.failed), maxPageSize/2)
+	if clampedPageSize == 0 {
+		return ""
+	}
+	page := u.Paginate(m.failed, clampedPageSize)
+	pageNum, currentPage := page.GetPageForIndex(m.branchCursor)
+	if page.TotalPages > 1 {
+		s += "\nPage"
+		s += codestyle.Render(fmt.Sprintf(" %d", pageNum+1))
+		s += " of"
+		s += codestyle.Render(fmt.Sprintf(" %d", page.TotalPages))
+	}
+	s += "\n\n"
+	for i, b := range currentPage {
+		if b.Name == "" {
+			s += "\n"
+			continue
+		}
+		ii := page.GetIndex(pageNum, i)
+		if m.branchCursor == ii {
+			s += "▶ "
+		} else {
+			s += "  "
+		}
+		_, ok := m.selectedMap[ii]
+		if ok {
+			s += enumStyleSelected.Render("(x)  ")
+		} else {
+			s += enumStyle.Render("( )  ")
+		}
+		if ok {
+			s += itemStyleSelected.Render(b.Name)
+			s += "\n       "
+			s += enumStyleSelected.Render(b.Desc)
+		} else {
+			s += itemStyle.Render(b.Name)
+			s += "\n       "
+			s += itemStyle.Render(b.Desc)
 		}
 
 		s += "\n"

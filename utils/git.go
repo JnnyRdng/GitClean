@@ -1,4 +1,4 @@
-package internal
+package utils
 
 import (
 	"os/exec"
@@ -58,4 +58,15 @@ func GitGetBranches(directory string, allBranches bool) ([]string, error) {
 		lines[i] = strings.TrimSpace(split[0])
 	}
 	return lines, nil
+}
+
+func TryDeleteBranch(directory string, branch string, isDryRun bool) (string, error) {
+	if isDryRun {
+		return "Didn't actually delete it", nil
+	}
+	return runGitCommand(directory, "-c", "advice.forceDeleteBranch=false", "branch", "-d", branch)
+}
+
+func ForceDeleteBranches(directory string, branches []string) (string, error) {
+	return runGitCommand(directory, "branch", "-D", strings.Join(branches, " "))
 }

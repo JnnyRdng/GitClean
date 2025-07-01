@@ -1,6 +1,7 @@
-package internal
+package settings
 
 import (
+	"gitclean/utils"
 	"log"
 	"os"
 	"path/filepath"
@@ -65,7 +66,7 @@ func (s *Settings) Validate() (bool, string) {
 	if err != nil {
 		return false, err.Error() + " " + abs
 	}
-	top, err := GitTopLevel(abs)
+	top, err := utils.GitTopLevel(abs)
 	if err != nil {
 		return false, err.Error() + " " + top
 	}
